@@ -1,6 +1,8 @@
-# PHP-Mail_lib
+## PHP-Mail_lib
 Sending E-mail in PHP (native php function)
+### Features
 PHP-Mail_lib sending E-mail in PHP (native php function) this class has the following features:
+```markdown
 - Each email feature can be easily set via class functions by switching to string or array functions
 - bcc(Copy Hidden Knowledge) 
 - cc(Copy Knowledge) 
@@ -12,3 +14,7 @@ PHP-Mail_lib sending E-mail in PHP (native php function) this class has the foll
 - Possibility to add custom header to the object declaration 
 - Custom management of the error in the extended class (in Mail_Exception.php) 
 - Control of every parameter entered each time you call a function and its error management through the boolean (if error) or return of the previously passed variable (if successful)
+```
+### Support or Contact
+
+Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
