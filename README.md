@@ -17,4 +17,4 @@ PHP-Mail_lib sending E-mail in PHP (native php function) this class has the foll
 ```
 ### Support or Contact
 
-Having trouble with Pages? Check out test.php file.
+Having trouble with Mail? Check out test.php file.
