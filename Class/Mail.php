@@ -4,41 +4,11 @@
  * User: Silvio
  * Date: 26/07/2019
  * Time: 14:17
- * -------------------
- * PHP-Mail_lib/Mail.php
- *
- * Sending E-mail in PHP with native php function
- *
- * PHP versions 4+
- *
- * Copyright (c) 2019 Silvio Pardo
- *
- * LICENSE:
- *
- * This library is free software; you can redistribute it
- * and/or modify it under the terms of the GNU Lesser General
- * Public License as published by the Free Software Foundation;
- * either version 3 of the License, or (at your option) any
- * later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * @package    PHP-Mail_lib
- * @author     Silvio Pardo <silviopardo@silviopardo.it>
- * @copyright  2019 Silvio Pardo
- * @license    http://www.opensource.org/licenses/lgpl-license.php LGPL
  */
 
 require 'Mail_Exception.php';
 require 'Mail_variable.php';
-class Mail
+class Mail extends Mail_variable
 {
     public function __construct($obj,$text,$header)
     {
@@ -70,9 +40,14 @@ class Mail
                 {
                     if($type == $key){
                         $ftype = $value;
-                    }else{
-                        $ftype = "application/octet-stream";
                     }
+
+                }
+                //control for return
+                if(empty($ftype)){
+                    $ftype = "application/octet-stream";
+                    return $ftype;
+                }else{
                     return $ftype;
                 }
             }else{
@@ -98,15 +73,16 @@ class Mail
 
     }
     private function set_multitype_message(){
-        $new_message = "--".$this->boundary_hash.PHP_EOL."Content-type:text/html; charset=iso-8859-1\r\n"."Content-Transfer-Encoding: 7bit".PHP_EOL.PHP_EOL.$this->message.PHP_EOL."--".$this->boundary_hash.PHP_EOL;
+        $new_message = "--".$this->boundary_hash.PHP_EOL."Content-type:text/html; charset=iso-8859-1\r\n"."Content-Transfer-Encoding: base64".PHP_EOL.PHP_EOL.chunk_split(base64_encode($this->message)).PHP_EOL.PHP_EOL."--".$this->boundary_hash.PHP_EOL;
         $this->message = $new_message;
     }
     private function fetch_attachment(){
-        for($i=0;$i<=sizeof($this->attachment[0]);$i++){
-            $this->message .= "Content-Type: ".$this->attachment[1][$i]."; name=\"".basename($this->attachment[0][$i])."\"".PHP_EOL;
-            $this->message .= "Content-Transfer-Encoding: base64\r\n";
-            $this->message .= "Content-Disposition: attachment; filename=\"".basename($this->attachment[0][$i])."\"".PHP_EOL.PHP_EOL;
-            $this->message .= $this->attachment[2][$i].PHP_EOL;
+        for($i=0;$i<=sizeof($this->attachment)-1;$i++){
+            $this->message .= "Content-Type: ".$this->attachment[$i][1]."; name=\"".basename($this->attachment[$i][0])."\"".PHP_EOL;
+            $this->message .= "Content-Disposition: attachment; filename=\"".basename($this->attachment[$i][0])."\"".PHP_EOL;
+            $this->message .= "Content-Transfer-Encoding: base64".PHP_EOL;
+            $this->message .= "X-Attachment-Id: ".rand(1000, 99999).PHP_EOL.PHP_EOL;
+            $this->message .= $this->attachment[$i][2].PHP_EOL;
             $this->message .= "--".$this->boundary_hash."--";
         }
     }
@@ -128,6 +104,9 @@ class Mail
                 return false;
                 break;
         }
+    }
+    private function match_header(){
+       $this->headers = array_merge($this->headers,$this->header_c_Type);
     }
     public function set_sender($sender){
         try{
@@ -170,7 +149,7 @@ class Mail
         try{
             if(is_string($bcc)){
                 if(filter_var($bcc, FILTER_VALIDATE_EMAIL)) {
-                    if(empty($this->sendTo)){
+                    if(empty($this->bcc)){
                         $this->bcc .= $bcc;
                         return $this->bcc;
                     }else {
@@ -232,17 +211,17 @@ class Mail
     public function set_Content_type($Ctype){
         try{
             if(is_string($Ctype)) {
-                array_push($this->headers, 'Content-type: ' . $Ctype);
+                array_push($this->header_c_Type, 'Content-type: ' . $Ctype);
                 return $Ctype;
             }elseif(is_array($Ctype) && $Ctype['attach_mode'] < 2){
-                array_push($this->headers, 'Content-type: ' . $Ctype["type"].'; boundary=\''.$this->boundary_hash.'\''.PHP_EOL);
+                array_push($this->header_c_Type, 'Content-type: ' . $Ctype["type"].'; boundary='.$this->boundary_hash,'Content-Transfer-Encoding: 7bit');
                 return $Ctype;
             }else{
                 if(is_array($Ctype) && $Ctype['attach_mode'] > 1){
                     // multi_boundary
                     $Mmime_boundary = "==Multipart_Boundary_x{$this->boundary_hash}x";
                     $this->boundary_hash = $Mmime_boundary;
-                    array_push($this->headers, 'Content-type: ' . $Ctype["type"].'; boundary=\''.$this->boundary_hash.'\''.PHP_EOL);
+                    array_push($this->header_c_Type, 'Content-type: ' . $Ctype["type"].'; boundary=\''.$this->boundary_hash.'\'','Content-Transfer-Encoding: 7bit');
                     return $Ctype;
                 }else {
                     throw new Mail_Exception();
@@ -267,9 +246,11 @@ class Mail
     public function add_attachment($file){
         try {
             if (is_string($file) && file_exists($file)) {
-                array_push($this->attachment[0][],$file);
-                array_push($this->attachment[1][],$this->get_file_mimetype($file));
-                array_push($this->attachment[2][],$this->get_chunk_fsplit($file));
+                $arr_temp = array();
+                array_push($arr_temp,$file);
+                array_push($arr_temp,$this->get_file_mimetype($file));
+                array_push($arr_temp,$this->get_chunk_fsplit($file));
+                $this->attachment = array_merge($this->attachment,array($arr_temp));
             }else{
                 throw new Mail_Exception();
             }
@@ -290,13 +271,14 @@ class Mail
                 $this->fetch_multi_header("cc");
             }
             if(!empty($this->attachment)){
-                $this->set_multitype_message();
-                $this->fetch_attachment();
+                $this->match_header();
+                $this->set_multitype_message(); //salvo il messaggio prima dell'allegati
+                $this->fetch_attachment(); //fetch allegati
             }
             if($mail = mail($this->sendTo, $this->subject, $this->message, implode(PHP_EOL, $this->headers))) {
-               return $mail;
+                return $mail;
             }else{
-               throw new Mail_Exception();
+                throw new Mail_Exception();
             }
         }catch (Mail_Exception $error){
             return $error->error_send();
